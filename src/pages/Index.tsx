@@ -19,7 +19,10 @@ interface User {
   username: string;
   password: string;
   avatar?: string;
+  avatarColor?: string;
+  avatarEmoji?: string;
   bio?: string;
+  tag?: string;
   status: 'online' | 'offline' | 'away';
 }
 
@@ -43,8 +46,26 @@ interface Chat {
   description?: string;
 }
 
-const REGISTERED_USERS = ['Александр', 'Мария', 'Дмитрий', 'Елена', 'Игорь', 'Ольга', 'Сергей'];
+const REGISTERED_USERS = [
+  { name: 'Александр', tag: 'alex2024' },
+  { name: 'Мария', tag: 'maria_m' },
+  { name: 'Дмитрий', tag: 'dmitry_dev' },
+  { name: 'Елена', tag: 'elena_k' },
+  { name: 'Игорь', tag: 'igor_s' },
+  { name: 'Ольга', tag: 'olga_designer' },
+  { name: 'Сергей', tag: 'sergey_pro' }
+];
 const AVAILABLE_CHANNELS = ['Новости', 'Технологии', 'Спорт', 'Музыка', 'Кино'];
+
+const AVATAR_COLORS = [
+  '#9b87f5', '#F97316', '#0EA5E9', '#10B981', '#F59E0B',
+  '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#6366F1'
+];
+
+const AVATAR_EMOJIS = [
+  '😀', '😎', '🚀', '⚡', '🔥', '💎', '🎯', '🎨', '🎮', '🎵',
+  '⭐', '🌟', '💫', '✨', '🌈', '🦄', '🐱', '🐶', '🦊', '🐼'
+];
 
 const Index = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -68,6 +89,7 @@ const Index = () => {
   });
 
   const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [editAvatarOpen, setEditAvatarOpen] = useState(false);
   const [createChatOpen, setCreateChatOpen] = useState(false);
   const [blockedUsersOpen, setBlockedUsersOpen] = useState(false);
   const [chatInfoOpen, setChatInfoOpen] = useState(false);
@@ -80,7 +102,17 @@ const Index = () => {
       toast({ title: 'Ошибка', description: 'Заполните все поля', variant: 'destructive' });
       return;
     }
-    setCurrentUser({ username, password, status: 'online', bio: 'Новый пользователь' });
+    const randomColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+    const randomEmoji = AVATAR_EMOJIS[Math.floor(Math.random() * AVATAR_EMOJIS.length)];
+    setCurrentUser({ 
+      username, 
+      password, 
+      status: 'online', 
+      bio: 'Новый пользователь',
+      avatarColor: randomColor,
+      avatarEmoji: randomEmoji,
+      tag: ''
+    });
     setIsLoggedIn(true);
     toast({ title: 'Успешно', description: `Добро пожаловать, ${username}!` });
   };
@@ -96,12 +128,14 @@ const Index = () => {
       return;
     }
 
-    if (!REGISTERED_USERS.includes(searchUsername)) {
+    const foundUser = REGISTERED_USERS.find(u => u.name === searchUsername || u.tag === searchUsername);
+    if (!foundUser) {
       toast({ title: 'Пользователь не найден', description: `Пользователь "${searchUsername}" не существует`, variant: 'destructive' });
       return;
     }
+    const actualName = foundUser.name;
 
-    const existingChat = chats.find(c => c.name === searchUsername && c.type === 'chat');
+    const existingChat = chats.find(c => c.name === actualName && c.type === 'chat');
     if (existingChat) {
       setSelectedChat(existingChat.id);
       setCreateChatOpen(false);
@@ -111,11 +145,11 @@ const Index = () => {
 
     const newChat: Chat = {
       id: `${Date.now()}`,
-      name: searchUsername,
+      name: actualName,
       lastMessage: 'Чат создан',
       time: 'сейчас',
       unread: 0,
-      avatar: searchUsername.substring(0, 2).toUpperCase(),
+      avatar: actualName.substring(0, 2).toUpperCase(),
       type: 'chat',
       messages: []
     };
@@ -124,7 +158,7 @@ const Index = () => {
     setSearchUsername('');
     setCreateChatOpen(false);
     setSelectedChat(newChat.id);
-    toast({ title: 'Создано', description: `Чат с ${searchUsername} создан` });
+    toast({ title: 'Создано', description: `Чат с ${actualName} создан` });
   };
 
   const handleJoinChannel = () => {
@@ -348,9 +382,15 @@ const Index = () => {
                       />
                     </div>
                     {activeTab === 'chats' ? (
-                      <div className="bg-muted/50 p-3 rounded-lg space-y-1">
-                        <p className="text-xs font-semibold text-muted-foreground">Доступные пользователи:</p>
-                        <p className="text-sm">{REGISTERED_USERS.join(', ')}</p>
+                      <div className="bg-muted/50 p-3 rounded-lg space-y-2">
+                        <p className="text-xs font-semibold text-muted-foreground">Поиск по имени или тегу:</p>
+                        <div className="space-y-1">
+                          {REGISTERED_USERS.map((user, idx) => (
+                            <p key={idx} className="text-sm">
+                              {user.name} <span className="text-muted-foreground">@{user.tag}</span>
+                            </p>
+                          ))}
+                        </div>
                       </div>
                     ) : (
                       <div className="bg-muted/50 p-3 rounded-lg space-y-1">
@@ -382,14 +422,29 @@ const Index = () => {
                       <div className="space-y-4">
                         <h3 className="font-semibold">Профиль</h3>
                         <div className="flex items-center gap-4">
-                          <Avatar className="h-16 w-16">
-                            <AvatarFallback className="bg-primary text-primary-foreground text-xl">
-                              {currentUser?.username.substring(0, 2).toUpperCase()}
+                          <Avatar 
+                            className="h-16 w-16 cursor-pointer relative" 
+                            onClick={() => setEditAvatarOpen(true)}
+                            style={{ backgroundColor: currentUser?.avatarColor || '#9b87f5' }}
+                          >
+                            <AvatarFallback 
+                              className="text-3xl border-2 border-background"
+                              style={{ backgroundColor: currentUser?.avatarColor || '#9b87f5' }}
+                            >
+                              {currentUser?.avatarEmoji || currentUser?.username.substring(0, 2).toUpperCase()}
                             </AvatarFallback>
+                            <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-1">
+                              <Icon name="Camera" size={12} className="text-muted-foreground" />
+                            </div>
                           </Avatar>
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             <p className="font-semibold">{currentUser?.username}</p>
-                            <p className="text-sm text-muted-foreground">{currentUser?.bio || 'Нет описания'}</p>
+                            {currentUser?.tag ? (
+                              <p className="text-sm text-primary">@{currentUser.tag}</p>
+                            ) : (
+                              <p className="text-sm text-muted-foreground italic">Тег не установлен</p>
+                            )}
+                            <p className="text-xs text-muted-foreground truncate">{currentUser?.bio || 'Нет описания'}</p>
                           </div>
                           <Button variant="outline" size="sm" onClick={() => setEditProfileOpen(true)}>
                             <Icon name="Edit" size={16} />
@@ -758,9 +813,16 @@ const Index = () => {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="flex justify-center">
-              <Avatar className="h-24 w-24">
-                <AvatarFallback className="bg-primary text-primary-foreground text-3xl">
-                  {currentUser?.username.substring(0, 2).toUpperCase()}
+              <Avatar 
+                className="h-24 w-24 cursor-pointer" 
+                onClick={() => setEditAvatarOpen(true)}
+                style={{ backgroundColor: currentUser?.avatarColor || '#9b87f5' }}
+              >
+                <AvatarFallback 
+                  className="text-4xl"
+                  style={{ backgroundColor: currentUser?.avatarColor || '#9b87f5' }}
+                >
+                  {currentUser?.avatarEmoji || currentUser?.username.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             </div>
@@ -769,11 +831,29 @@ const Index = () => {
               <Input value={currentUser?.username} disabled />
             </div>
             <div className="space-y-2">
+              <Label>Тег <span className="text-xs text-muted-foreground">(для поиска)</span></Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
+                <Input
+                  placeholder="ваш_тег"
+                  value={currentUser?.tag}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase();
+                    setCurrentUser(prev => prev ? { ...prev, tag: value } : null);
+                  }}
+                  className="pl-7"
+                  maxLength={20}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Друзья смогут найти вас по этому тегу</p>
+            </div>
+            <div className="space-y-2">
               <Label>О себе</Label>
               <Textarea
                 placeholder="Расскажите о себе..."
                 value={currentUser?.bio}
                 onChange={(e) => setCurrentUser(prev => prev ? { ...prev, bio: e.target.value } : null)}
+                maxLength={150}
               />
             </div>
             <div className="space-y-2">
@@ -795,10 +875,78 @@ const Index = () => {
           </div>
           <DialogFooter>
             <Button onClick={() => {
+              if (currentUser?.tag && currentUser.tag.length < 3) {
+                toast({ title: 'Ошибка', description: 'Тег должен содержать минимум 3 символа', variant: 'destructive' });
+                return;
+              }
               setEditProfileOpen(false);
               toast({ title: 'Сохранено', description: 'Профиль обновлен' });
             }}>
               Сохранить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editAvatarOpen} onOpenChange={setEditAvatarOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Изменить аватар</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div className="flex justify-center">
+              <Avatar 
+                className="h-32 w-32"
+                style={{ backgroundColor: currentUser?.avatarColor || '#9b87f5' }}
+              >
+                <AvatarFallback 
+                  className="text-5xl"
+                  style={{ backgroundColor: currentUser?.avatarColor || '#9b87f5' }}
+                >
+                  {currentUser?.avatarEmoji || currentUser?.username.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+
+            <div className="space-y-3">
+              <Label>Выберите эмодзи</Label>
+              <div className="grid grid-cols-10 gap-2">
+                {AVATAR_EMOJIS.map((emoji, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentUser(prev => prev ? { ...prev, avatarEmoji: emoji } : null)}
+                    className={`text-2xl p-2 rounded-lg hover:bg-accent transition-colors ${
+                      currentUser?.avatarEmoji === emoji ? 'bg-accent ring-2 ring-primary' : ''
+                    }`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label>Выберите цвет фона</Label>
+              <div className="grid grid-cols-5 gap-3">
+                {AVATAR_COLORS.map((color, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentUser(prev => prev ? { ...prev, avatarColor: color } : null)}
+                    className={`h-12 rounded-lg transition-all ${
+                      currentUser?.avatarColor === color ? 'ring-4 ring-primary scale-110' : 'hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => {
+              setEditAvatarOpen(false);
+              toast({ title: 'Сохранено', description: 'Аватар обновлен' });
+            }}>
+              Готово
             </Button>
           </DialogFooter>
         </DialogContent>
