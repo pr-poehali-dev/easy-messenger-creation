@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -97,6 +97,46 @@ const Index = () => {
   const [searchInChat, setSearchInChat] = useState('');
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
 
+  useEffect(() => {
+    const savedUser = localStorage.getItem('currentUser');
+    const savedChats = localStorage.getItem('chats');
+    const savedBlockedUsers = localStorage.getItem('blockedUsers');
+    const savedSettings = localStorage.getItem('settings');
+
+    if (savedUser) {
+      const user = JSON.parse(savedUser);
+      setCurrentUser(user);
+      setIsLoggedIn(true);
+    }
+    if (savedChats) {
+      const parsedChats = JSON.parse(savedChats);
+      parsedChats.forEach((chat: Chat) => {
+        chat.messages = chat.messages.map(m => ({ ...m, timestamp: new Date(m.timestamp) }));
+      });
+      setChats(parsedChats);
+    }
+    if (savedBlockedUsers) setBlockedUsers(JSON.parse(savedBlockedUsers));
+    if (savedSettings) setSettings(JSON.parse(savedSettings));
+  }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    localStorage.setItem('chats', JSON.stringify(chats));
+  }, [chats]);
+
+  useEffect(() => {
+    localStorage.setItem('blockedUsers', JSON.stringify(blockedUsers));
+  }, [blockedUsers]);
+
+  useEffect(() => {
+    localStorage.setItem('settings', JSON.stringify(settings));
+  }, [settings]);
+
   const handleAuth = () => {
     if (!username || !password) {
       toast({ title: 'Ошибка', description: 'Заполните все поля', variant: 'destructive' });
@@ -104,7 +144,7 @@ const Index = () => {
     }
     const randomColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
     const randomEmoji = AVATAR_EMOJIS[Math.floor(Math.random() * AVATAR_EMOJIS.length)];
-    setCurrentUser({ 
+    const newUser = { 
       username, 
       password, 
       status: 'online', 
@@ -112,9 +152,22 @@ const Index = () => {
       avatarColor: randomColor,
       avatarEmoji: randomEmoji,
       tag: ''
-    });
+    };
+    setCurrentUser(newUser);
     setIsLoggedIn(true);
+    localStorage.setItem('currentUser', JSON.stringify(newUser));
     toast({ title: 'Успешно', description: `Добро пожаловать, ${username}!` });
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setCurrentUser(null);
+    setChats([]);
+    setBlockedUsers([]);
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('chats');
+    localStorage.removeItem('blockedUsers');
+    toast({ title: 'Выход', description: 'Вы вышли из системы' });
   };
 
   const handleCreateChat = () => {
@@ -505,7 +558,7 @@ const Index = () => {
                           <Icon name="Shield" size={18} className="mr-2" />
                           Заблокированные ({blockedUsers.length})
                         </Button>
-                        <Button variant="destructive" className="w-full justify-start" onClick={() => setIsLoggedIn(false)}>
+                        <Button variant="destructive" className="w-full justify-start" onClick={handleLogout}>
                           <Icon name="LogOut" size={18} className="mr-2" />
                           Выйти
                         </Button>
