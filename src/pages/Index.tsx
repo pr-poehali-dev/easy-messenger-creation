@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -29,7 +29,6 @@ interface Message {
   text: string;
   timestamp: Date;
   edited?: boolean;
-  attachments?: string[];
 }
 
 interface Chat {
@@ -39,20 +38,13 @@ interface Chat {
   time: string;
   unread: number;
   avatar: string;
-  type: 'chat' | 'group' | 'channel';
+  type: 'chat' | 'channel';
   messages: Message[];
-  members?: string[];
   description?: string;
 }
 
-interface Contact {
-  id: string;
-  name: string;
-  status: 'online' | 'offline' | 'away';
-  avatar: string;
-  blocked?: boolean;
-  lastSeen?: Date;
-}
+const REGISTERED_USERS = ['Александр', 'Мария', 'Дмитрий', 'Елена', 'Игорь', 'Ольга', 'Сергей'];
+const AVAILABLE_CHANNELS = ['Новости', 'Технологии', 'Спорт', 'Музыка', 'Кино'];
 
 const Index = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -64,107 +56,24 @@ const Index = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [message, setMessage] = useState('');
-  const [chats, setChats] = useState<Chat[]>([
-    {
-      id: '1',
-      name: 'Александр Петров',
-      lastMessage: 'Привет! Как дела?',
-      time: '14:32',
-      unread: 2,
-      avatar: 'АП',
-      type: 'chat',
-      messages: [
-        { id: 'm1', senderId: '1', text: 'Привет! Как дела?', timestamp: new Date() },
-        { id: 'm2', senderId: 'current', text: 'Отлично! Работаю над новым проектом', timestamp: new Date() }
-      ]
-    },
-    {
-      id: '2',
-      name: 'Мария Иванова',
-      lastMessage: 'Отправила файл',
-      time: '13:15',
-      unread: 0,
-      avatar: 'МИ',
-      type: 'chat',
-      messages: [
-        { id: 'm3', senderId: '2', text: 'Отправила файл с документацией', timestamp: new Date() }
-      ]
-    },
-    {
-      id: '3',
-      name: 'Разработчики',
-      lastMessage: 'Дмитрий: Завтра созвон в 10:00',
-      time: '12:45',
-      unread: 5,
-      avatar: 'Р',
-      type: 'group',
-      members: ['Дмитрий', 'Алексей', 'Ирина'],
-      description: 'Группа для обсуждения проектов',
-      messages: [
-        { id: 'm4', senderId: '3', text: 'Завтра созвон в 10:00', timestamp: new Date() }
-      ]
-    },
-    {
-      id: '4',
-      name: 'Новости IT',
-      lastMessage: 'Выпуск новой версии React',
-      time: 'вчера',
-      unread: 0,
-      avatar: 'IT',
-      type: 'channel',
-      description: 'Канал с новостями технологий',
-      messages: [
-        { id: 'm5', senderId: 'admin', text: 'Выпуск новой версии React с улучшениями производительности', timestamp: new Date() }
-      ]
-    },
-    {
-      id: '5',
-      name: 'Проект Alpha',
-      lastMessage: 'Обновлена документация',
-      time: 'вчера',
-      unread: 1,
-      avatar: 'PA',
-      type: 'group',
-      members: ['Сергей', 'Ольга'],
-      messages: []
-    }
-  ]);
-
-  const [contacts, setContacts] = useState<Contact[]>([
-    { id: '1', name: 'Александр Петров', status: 'online', avatar: 'АП' },
-    { id: '2', name: 'Мария Иванова', status: 'offline', avatar: 'МИ', lastSeen: new Date() },
-    { id: '3', name: 'Дмитрий Сидоров', status: 'online', avatar: 'ДС' },
-    { id: '4', name: 'Елена Козлова', status: 'away', avatar: 'ЕК' },
-    { id: '5', name: 'Игорь Смирнов', status: 'online', avatar: 'ИС', blocked: true }
-  ]);
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
 
   const [settings, setSettings] = useState({
     notifications: true,
     readReceipts: true,
     lastSeen: true,
     profilePhoto: true,
-    autoDownload: false,
-    darkMode: true
+    autoDownload: false
   });
 
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [createChatOpen, setCreateChatOpen] = useState(false);
   const [blockedUsersOpen, setBlockedUsersOpen] = useState(false);
   const [chatInfoOpen, setChatInfoOpen] = useState(false);
-  const [newChatName, setNewChatName] = useState('');
-  const [newChatType, setNewChatType] = useState<'group' | 'channel'>('group');
+  const [searchUsername, setSearchUsername] = useState('');
   const [searchInChat, setSearchInChat] = useState('');
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setContacts(prev => prev.map(contact => ({
-        ...contact,
-        status: contact.blocked ? contact.status : (['online', 'offline', 'away'] as const)[Math.floor(Math.random() * 3)]
-      })));
-    }, 10000);
-    return () => clearInterval(interval);
-  }, []);
 
   const handleAuth = () => {
     if (!username || !password) {
@@ -174,6 +83,91 @@ const Index = () => {
     setCurrentUser({ username, password, status: 'online', bio: 'Новый пользователь' });
     setIsLoggedIn(true);
     toast({ title: 'Успешно', description: `Добро пожаловать, ${username}!` });
+  };
+
+  const handleCreateChat = () => {
+    if (!searchUsername.trim()) {
+      toast({ title: 'Ошибка', description: 'Введите имя пользователя', variant: 'destructive' });
+      return;
+    }
+
+    if (blockedUsers.includes(searchUsername)) {
+      toast({ title: 'Ошибка', description: 'Этот пользователь заблокирован', variant: 'destructive' });
+      return;
+    }
+
+    if (!REGISTERED_USERS.includes(searchUsername)) {
+      toast({ title: 'Пользователь не найден', description: `Пользователь "${searchUsername}" не существует`, variant: 'destructive' });
+      return;
+    }
+
+    const existingChat = chats.find(c => c.name === searchUsername && c.type === 'chat');
+    if (existingChat) {
+      setSelectedChat(existingChat.id);
+      setCreateChatOpen(false);
+      toast({ title: 'Чат найден', description: 'Переход к существующему чату' });
+      return;
+    }
+
+    const newChat: Chat = {
+      id: `${Date.now()}`,
+      name: searchUsername,
+      lastMessage: 'Чат создан',
+      time: 'сейчас',
+      unread: 0,
+      avatar: searchUsername.substring(0, 2).toUpperCase(),
+      type: 'chat',
+      messages: []
+    };
+
+    setChats(prev => [newChat, ...prev]);
+    setSearchUsername('');
+    setCreateChatOpen(false);
+    setSelectedChat(newChat.id);
+    toast({ title: 'Создано', description: `Чат с ${searchUsername} создан` });
+  };
+
+  const handleJoinChannel = () => {
+    if (!searchUsername.trim()) {
+      toast({ title: 'Ошибка', description: 'Введите название канала', variant: 'destructive' });
+      return;
+    }
+
+    if (!AVAILABLE_CHANNELS.includes(searchUsername)) {
+      toast({ title: 'Канал не найден', description: `Канал "${searchUsername}" не существует`, variant: 'destructive' });
+      return;
+    }
+
+    const existingChannel = chats.find(c => c.name === searchUsername && c.type === 'channel');
+    if (existingChannel) {
+      setSelectedChat(existingChannel.id);
+      setCreateChatOpen(false);
+      toast({ title: 'Канал найден', description: 'Вы уже подписаны на этот канал' });
+      return;
+    }
+
+    const newChannel: Chat = {
+      id: `${Date.now()}`,
+      name: searchUsername,
+      lastMessage: 'Добро пожаловать в канал',
+      time: 'сейчас',
+      unread: 0,
+      avatar: searchUsername.substring(0, 2).toUpperCase(),
+      type: 'channel',
+      messages: [{
+        id: 'm1',
+        senderId: 'admin',
+        text: `Добро пожаловать в канал "${searchUsername}"!`,
+        timestamp: new Date()
+      }],
+      description: `Канал ${searchUsername}`
+    };
+
+    setChats(prev => [newChannel, ...prev]);
+    setSearchUsername('');
+    setCreateChatOpen(false);
+    setSelectedChat(newChannel.id);
+    toast({ title: 'Подписка оформлена', description: `Вы подписались на канал ${searchUsername}` });
   };
 
   const handleSendMessage = () => {
@@ -232,37 +226,16 @@ const Index = () => {
     toast({ title: 'Изменено', description: 'Сообщение отредактировано' });
   };
 
-  const handleBlockUser = (contactId: string) => {
-    setContacts(prev => prev.map(c => c.id === contactId ? { ...c, blocked: !c.blocked } : c));
-    const contact = contacts.find(c => c.id === contactId);
-    toast({
-      title: contact?.blocked ? 'Разблокирован' : 'Заблокирован',
-      description: `${contact?.name} ${contact?.blocked ? 'разблокирован' : 'заблокирован'}`
-    });
-  };
-
-  const handleCreateChat = () => {
-    if (!newChatName.trim()) {
-      toast({ title: 'Ошибка', description: 'Введите название', variant: 'destructive' });
-      return;
+  const handleBlockUser = (userName: string) => {
+    if (blockedUsers.includes(userName)) {
+      setBlockedUsers(prev => prev.filter(u => u !== userName));
+      toast({ title: 'Разблокирован', description: `${userName} разблокирован` });
+    } else {
+      setBlockedUsers(prev => [...prev, userName]);
+      setChats(prev => prev.filter(c => c.name !== userName));
+      if (currentChat?.name === userName) setSelectedChat(null);
+      toast({ title: 'Заблокирован', description: `${userName} заблокирован` });
     }
-
-    const newChat: Chat = {
-      id: `${Date.now()}`,
-      name: newChatName,
-      lastMessage: 'Чат создан',
-      time: 'сейчас',
-      unread: 0,
-      avatar: newChatName.substring(0, 2).toUpperCase(),
-      type: newChatType,
-      messages: [],
-      members: newChatType === 'group' ? [currentUser?.username || ''] : undefined
-    };
-
-    setChats(prev => [newChat, ...prev]);
-    setNewChatName('');
-    setCreateChatOpen(false);
-    toast({ title: 'Создано', description: `${newChatType === 'group' ? 'Группа' : 'Канал'} "${newChatName}" создан` });
   };
 
   const handleDeleteChat = (chatId: string) => {
@@ -276,10 +249,6 @@ const Index = () => {
   const filteredChats = chats.filter(chat =>
     chat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     chat.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredContacts = contacts.filter(contact =>
-    contact.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredMessages = currentChat?.messages.filter(msg =>
@@ -358,32 +327,42 @@ const Index = () => {
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Создать чат</DialogTitle>
+                    <DialogTitle>
+                      {activeTab === 'chats' ? 'Создать чат' : 'Найти канал'}
+                    </DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label>Тип</Label>
-                      <Select value={newChatType} onValueChange={(v) => setNewChatType(v as 'group' | 'channel')}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="group">Группа</SelectItem>
-                          <SelectItem value="channel">Канал</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Название</Label>
+                      <Label>
+                        {activeTab === 'chats' ? 'Имя пользователя' : 'Название канала'}
+                      </Label>
                       <Input
-                        placeholder="Введите название"
-                        value={newChatName}
-                        onChange={(e) => setNewChatName(e.target.value)}
+                        placeholder={activeTab === 'chats' ? 'Введите имя пользователя' : 'Введите название канала'}
+                        value={searchUsername}
+                        onChange={(e) => setSearchUsername(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            activeTab === 'chats' ? handleCreateChat() : handleJoinChannel();
+                          }
+                        }}
                       />
                     </div>
+                    {activeTab === 'chats' ? (
+                      <div className="bg-muted/50 p-3 rounded-lg space-y-1">
+                        <p className="text-xs font-semibold text-muted-foreground">Доступные пользователи:</p>
+                        <p className="text-sm">{REGISTERED_USERS.join(', ')}</p>
+                      </div>
+                    ) : (
+                      <div className="bg-muted/50 p-3 rounded-lg space-y-1">
+                        <p className="text-xs font-semibold text-muted-foreground">Доступные каналы:</p>
+                        <p className="text-sm">{AVAILABLE_CHANNELS.join(', ')}</p>
+                      </div>
+                    )}
                   </div>
                   <DialogFooter>
-                    <Button onClick={handleCreateChat}>Создать</Button>
+                    <Button onClick={activeTab === 'chats' ? handleCreateChat : handleJoinChannel}>
+                      {activeTab === 'chats' ? 'Создать' : 'Подписаться'}
+                    </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -430,8 +409,8 @@ const Index = () => {
                             <p className="text-2xl font-bold">{totalMessages}</p>
                           </Card>
                           <Card className="p-3">
-                            <p className="text-xs text-muted-foreground">Контактов</p>
-                            <p className="text-2xl font-bold">{contacts.length}</p>
+                            <p className="text-xs text-muted-foreground">Заблокировано</p>
+                            <p className="text-2xl font-bold">{blockedUsers.length}</p>
                           </Card>
                           <Card className="p-3">
                             <p className="text-xs text-muted-foreground">Непрочитано</p>
@@ -469,7 +448,7 @@ const Index = () => {
                       <div className="space-y-2">
                         <Button variant="outline" className="w-full justify-start" onClick={() => setBlockedUsersOpen(true)}>
                           <Icon name="Shield" size={18} className="mr-2" />
-                          Заблокированные ({contacts.filter(c => c.blocked).length})
+                          Заблокированные ({blockedUsers.length})
                         </Button>
                         <Button variant="destructive" className="w-full justify-start" onClick={() => setIsLoggedIn(false)}>
                           <Icon name="LogOut" size={18} className="mr-2" />
@@ -486,7 +465,7 @@ const Index = () => {
           <div className="relative">
             <Icon name="Search" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Поиск по названию и сообщениям..."
+              placeholder="Поиск по чатам..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -495,143 +474,92 @@ const Index = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-          <TabsList className="w-full grid grid-cols-3 rounded-none border-b border-border">
+          <TabsList className="w-full grid grid-cols-2 rounded-none border-b border-border">
             <TabsTrigger value="chats">
               Чаты {unreadCount > 0 && <Badge className="ml-2 bg-primary text-xs">{unreadCount}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="channels">Каналы</TabsTrigger>
-            <TabsTrigger value="contacts">Контакты</TabsTrigger>
           </TabsList>
 
           <TabsContent value="chats" className="flex-1 m-0">
             <ScrollArea className="h-full">
-              {filteredChats.filter(c => c.type === 'chat' || c.type === 'group').map((chat) => (
-                <div
-                  key={chat.id}
-                  onClick={() => setSelectedChat(chat.id)}
-                  className={`p-4 border-b border-border cursor-pointer hover:bg-accent/50 transition-colors ${
-                    selectedChat === chat.id ? 'bg-accent' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarFallback className="bg-primary/20 text-primary">
-                        {chat.avatar}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
+              {filteredChats.filter(c => c.type === 'chat').length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                  <Icon name="MessageSquare" size={48} className="text-muted-foreground mb-4" />
+                  <h3 className="font-semibold mb-2">Нет чатов</h3>
+                  <p className="text-sm text-muted-foreground mb-4">Нажмите "+" чтобы создать чат</p>
+                </div>
+              ) : (
+                filteredChats.filter(c => c.type === 'chat').map((chat) => (
+                  <div
+                    key={chat.id}
+                    onClick={() => setSelectedChat(chat.id)}
+                    className={`p-4 border-b border-border cursor-pointer hover:bg-accent/50 transition-colors ${
+                      selectedChat === chat.id ? 'bg-accent' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar>
+                        <AvatarFallback className="bg-primary/20 text-primary">
+                          {chat.avatar}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
                           <span className="font-medium truncate">{chat.name}</span>
-                          {chat.type === 'group' && (
-                            <Icon name="Users" size={14} className="text-muted-foreground flex-shrink-0" />
+                          <span className="text-xs text-muted-foreground">{chat.time}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-muted-foreground truncate">{chat.lastMessage}</p>
+                          {chat.unread > 0 && (
+                            <Badge className="ml-2 bg-primary">{chat.unread}</Badge>
                           )}
                         </div>
-                        <span className="text-xs text-muted-foreground">{chat.time}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm text-muted-foreground truncate">{chat.lastMessage}</p>
-                        {chat.unread > 0 && (
-                          <Badge className="ml-2 bg-primary">{chat.unread}</Badge>
-                        )}
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </ScrollArea>
           </TabsContent>
 
           <TabsContent value="channels" className="flex-1 m-0">
             <ScrollArea className="h-full">
-              {filteredChats.filter(c => c.type === 'channel').map((chat) => (
-                <div
-                  key={chat.id}
-                  onClick={() => setSelectedChat(chat.id)}
-                  className={`p-4 border-b border-border cursor-pointer hover:bg-accent/50 transition-colors ${
-                    selectedChat === chat.id ? 'bg-accent' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarFallback className="bg-primary/20 text-primary">
-                        {chat.avatar}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium truncate">{chat.name}</span>
-                          <Icon name="Radio" size={14} className="text-muted-foreground flex-shrink-0" />
-                        </div>
-                        <span className="text-xs text-muted-foreground">{chat.time}</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground truncate">{chat.lastMessage}</p>
-                    </div>
-                  </div>
+              {filteredChats.filter(c => c.type === 'channel').length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                  <Icon name="Radio" size={48} className="text-muted-foreground mb-4" />
+                  <h3 className="font-semibold mb-2">Нет каналов</h3>
+                  <p className="text-sm text-muted-foreground mb-4">Нажмите "+" чтобы подписаться на канал</p>
                 </div>
-              ))}
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value="contacts" className="flex-1 m-0">
-            <ScrollArea className="h-full">
-              {filteredContacts.map((contact) => (
-                <div
-                  key={contact.id}
-                  className="p-4 border-b border-border hover:bg-accent/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
+              ) : (
+                filteredChats.filter(c => c.type === 'channel').map((chat) => (
+                  <div
+                    key={chat.id}
+                    onClick={() => setSelectedChat(chat.id)}
+                    className={`p-4 border-b border-border cursor-pointer hover:bg-accent/50 transition-colors ${
+                      selectedChat === chat.id ? 'bg-accent' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
                       <Avatar>
-                        <AvatarFallback className={contact.blocked ? 'bg-destructive/20 text-destructive' : 'bg-primary/20 text-primary'}>
-                          {contact.avatar}
+                        <AvatarFallback className="bg-primary/20 text-primary">
+                          {chat.avatar}
                         </AvatarFallback>
                       </Avatar>
-                      {!contact.blocked && contact.status === 'online' && (
-                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
-                      )}
-                      {!contact.blocked && contact.status === 'away' && (
-                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-yellow-500 rounded-full border-2 border-background" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium truncate">{contact.name}</span>
-                        {contact.blocked ? (
-                          <Badge variant="destructive" className="text-xs">
-                            <Icon name="Ban" size={12} className="mr-1" />
-                            Заблокирован
-                          </Badge>
-                        ) : (
-                          <span className={`text-xs ${
-                            contact.status === 'online' ? 'text-green-500' : 
-                            contact.status === 'away' ? 'text-yellow-500' : 
-                            'text-muted-foreground'
-                          }`}>
-                            {contact.status === 'online' ? 'В сети' : 
-                             contact.status === 'away' ? 'Отошел' : 
-                             'Не в сети'}
-                          </span>
-                        )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium truncate">{chat.name}</span>
+                            <Icon name="Radio" size={14} className="text-muted-foreground flex-shrink-0" />
+                          </div>
+                          <span className="text-xs text-muted-foreground">{chat.time}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground truncate">{chat.lastMessage}</p>
                       </div>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Icon name="MoreVertical" size={16} />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => handleBlockUser(contact.id)}>
-                          <Icon name={contact.blocked ? "UserCheck" : "Ban"} size={16} className="mr-2" />
-                          {contact.blocked ? 'Разблокировать' : 'Заблокировать'}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </ScrollArea>
           </TabsContent>
         </Tabs>
@@ -650,9 +578,7 @@ const Index = () => {
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold truncate">{currentChat?.name}</p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {currentChat?.type === 'group' && `${currentChat.members?.length || 0} участников`}
-                    {currentChat?.type === 'channel' && 'Канал'}
-                    {currentChat?.type === 'chat' && 'В сети'}
+                    {currentChat?.type === 'channel' ? 'Канал' : 'В сети'}
                   </p>
                 </div>
               </div>
@@ -687,14 +613,12 @@ const Index = () => {
                       <Icon name="Info" size={16} className="mr-2" />
                       Информация
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Icon name="Pin" size={16} className="mr-2" />
-                      Закрепить
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Icon name="Archive" size={16} className="mr-2" />
-                      Архивировать
-                    </DropdownMenuItem>
+                    {currentChat?.type === 'chat' && (
+                      <DropdownMenuItem onClick={() => handleBlockUser(currentChat.name)}>
+                        <Icon name="Ban" size={16} className="mr-2" />
+                        Заблокировать
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => handleDeleteChat(selectedChat)} className="text-destructive">
                       <Icon name="Trash2" size={16} className="mr-2" />
@@ -887,20 +811,20 @@ const Index = () => {
           </DialogHeader>
           <ScrollArea className="max-h-[400px]">
             <div className="space-y-2 py-4">
-              {contacts.filter(c => c.blocked).length === 0 ? (
+              {blockedUsers.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">Нет заблокированных пользователей</p>
               ) : (
-                contacts.filter(c => c.blocked).map((contact) => (
-                  <div key={contact.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
+                blockedUsers.map((userName) => (
+                  <div key={userName} className="flex items-center justify-between p-3 border border-border rounded-lg">
                     <div className="flex items-center gap-3">
                       <Avatar>
                         <AvatarFallback className="bg-destructive/20 text-destructive">
-                          {contact.avatar}
+                          {userName.substring(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="font-medium">{contact.name}</span>
+                      <span className="font-medium">{userName}</span>
                     </div>
-                    <Button size="sm" variant="outline" onClick={() => handleBlockUser(contact.id)}>
+                    <Button size="sm" variant="outline" onClick={() => handleBlockUser(userName)}>
                       Разблокировать
                     </Button>
                   </div>
@@ -925,27 +849,9 @@ const Index = () => {
               </Avatar>
               <div className="text-center">
                 <h3 className="font-semibold text-lg">{currentChat?.name}</h3>
-                <p className="text-sm text-muted-foreground">{currentChat?.description || 'Нет описания'}</p>
+                <p className="text-sm text-muted-foreground">{currentChat?.description || currentChat?.type === 'chat' ? 'Личный чат' : 'Канал'}</p>
               </div>
             </div>
-
-            {currentChat?.type === 'group' && (
-              <div className="space-y-2">
-                <h4 className="font-semibold text-sm">Участники ({currentChat.members?.length || 0})</h4>
-                <div className="space-y-2">
-                  {currentChat.members?.map((member, idx) => (
-                    <div key={idx} className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-primary/20 text-primary text-xs">
-                          {member.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm">{member}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             <div className="space-y-2">
               <h4 className="font-semibold text-sm">Статистика</h4>
@@ -955,8 +861,8 @@ const Index = () => {
                   <p className="text-xl font-bold">{currentChat?.messages.length || 0}</p>
                 </Card>
                 <Card className="p-3">
-                  <p className="text-xs text-muted-foreground">Медиа</p>
-                  <p className="text-xl font-bold">0</p>
+                  <p className="text-xs text-muted-foreground">Тип</p>
+                  <p className="text-xl font-bold">{currentChat?.type === 'chat' ? '💬' : '📢'}</p>
                 </Card>
               </div>
             </div>
